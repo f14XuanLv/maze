@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>迷宫生成器</title>
+    <style>
+        .maze-container {
+            margin: 20px;
+        }
+        .maze {
+            border: 1px solid black;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .cell {
+            fill: white;
+            stroke: black;
+            stroke-width: 2;
+        }
+        .wall {
+            stroke: black;
+            stroke-width: 2;
+        }
+        .path {
+            stroke: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        宽度: <input type="number" id="width" value="5" min="2" max="20">
+        高度: <input type="number" id="height" value="5" min="2" max="20">
+        <button onclick="generateMaze()">生成迷宫</button>
+    </div>
+    <div id="maze-container" class="maze-container"></div>
+
+    <script>
+        class Cell {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.visited = false;
+                this.walls = {
+                    top: true,
+                    right: true,
+                    bottom: true,
+                    left: true
+                };
+            }
+        }
+
+        class Maze {
+            constructor(width, height) {
+                this.width = width;
+                this.height = height;
+                this.grid = this.initializeGrid();
+            }
+
+            initializeGrid() {
+                const grid = [];
+                for (let y = 0; y < this.height; y++) {
+                    const row = [];
+                    for (let x = 0; x < this.width; x++) {
+                        row.push(new Cell(x, y));
+                    }
+                    grid.push(row);
+                }
+                return grid;
+            }
+
+            getNeighbors(cell) {
+                const neighbors = [];
+                const {x, y} = cell;
+
+                const possibleNeighbors = [
+                    [x, y-1, 'top', 'bottom'],    // top
+                    [x+1, y, 'right', 'left'],    // right
+                    [x, y+1, 'bottom', 'top'],    // bottom
+                    [x-1, y, 'left', 'right']     // left
+                ];
+
+                for (const [nx, ny, wall1, wall2] of possibleNeighbors) {
+                    if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
+                        const neighbor = this.grid[ny][nx];
+                        if (!neighbor.visited) {
+                            neighbors.push({
+                                cell: neighbor,
+                                wall1,
+                                wall2
+                            });
+                        }
+                    }
+                }
+
+                return neighbors;
+            }
+
+            generate() {
+                const stack = [];
+                const startCell = this.grid[0][0];
+                startCell.visited = true;
+                stack.push(startCell);
+
+                while (stack.length > 0) {
+                    const current = stack[stack.length - 1];
+                    const neighbors = this.getNeighbors(current);
+
+                    if (neighbors.length === 0) {
+                        stack.pop();
+                        continue;
+                    }
+
+                    const {cell: next, wall1, wall2} = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    current.walls[wall1] = false;
+                    next.walls[wall2] = false;
+                    next.visited = true;
+                    stack.push(next);
+                }
+
+                // 创建入口和出口
+                this.grid[0][0].walls.left = false;
+                this.grid[this.height-1][this.width-1].walls.right = false;
+            }
+
+            render() {
+                const cellSize = 30;
+                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                svg.setAttribute("width", (this.width * cellSize + 2));
+                svg.setAttribute("height", (this.height * cellSize + 2));
+                svg.setAttribute("class", "maze");
+
+                for (let y = 0; y < this.height; y++) {
+                    for (let x = 0; x < this.width; x++) {
+                        const cell = this.grid[y][x];
+                        const px = x * cellSize;
+                        const py = y * cellSize;
+
+                        if (cell.walls.top) {
+                            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                            line.setAttribute("x1", px);
+                            line.setAttribute("y1", py);
+                            line.setAttribute("x2", px + cellSize);
+                            line.setAttribute("y2", py);
+                            line.setAttribute("class", "wall");
+                            svg.appendChild(line);
+                        }
+
+                        if (cell.walls.right) {
+                            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                            line.setAttribute("x1", px + cellSize);
+                            line.setAttribute("y1", py);
+                            line.setAttribute("x2", px + cellSize);
+                            line.setAttribute("y2", py + cellSize);
+                            line.setAttribute("class", "wall");
+                            svg.appendChild(line);
+                        }
+
+                        if (cell.walls.bottom) {
+                            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                            line.setAttribute("x1", px);
+                            line.setAttribute("y1", py + cellSize);
+                            line.setAttribute("x2", px + cellSize);
+                            line.setAttribute("y2", py + cellSize);
+                            line.setAttribute("class", "wall");
+                            svg.appendChild(line);
+                        }
+
+                        if (cell.walls.left) {
+                            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                            line.setAttribute("x1", px);
+                            line.setAttribute("y1", py);
+                            line.setAttribute("x2", px);
+                            line.setAttribute("y2", py + cellSize);
+                            line.setAttribute("class", "wall");
+                            svg.appendChild(line);
+                        }
+                    }
+                }
+
+                return svg;
+            }
+        }
+
+        function generateMaze() {
+            const width = parseInt(document.getElementById("width").value);
+            const height = parseInt(document.getElementById("height").value);
+            
+            if (width < 2 || height < 2 || width > 20 || height > 20) {
+                alert("请输入2-20之间的数值");
+                return;
+            }
+
+            const maze = new Maze(width, height);
+            maze.generate();
+
+            const container = document.getElementById("maze-container");
+            container.innerHTML = '';
+            container.appendChild(maze.render());
+        }
+    </script>
+</body>
+</html>
